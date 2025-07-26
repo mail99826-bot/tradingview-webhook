@@ -1,31 +1,17 @@
-from flask import Flask, request
-from pybit.unified_trading import HTTP
 import os
+from telegram.ext import Updater, MessageHandler, Filters
+from pybit.unified_trading import HTTP
 
-app = Flask(__name__)
+API_KEY = os.getenv("BYBIT_API_KEY")
+API_SECRET = os.getenv("BYBIT_API_SECRET")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
-# Получаем ключи из переменных окружения
-API_KEY = os.getenv("ZGlayyvdyYTc4LnPe2")
-API_SECRET = os.getenv("iNLu56CT9prRfKVTtDP42UR7ZAxx9vQ3CwBn")
+client = HTTP(testnet=True, api_key=API_KEY, api_secret=API_SECRET)
 
-# Инициализация клиента Bybit testnet
-client = HTTP(
-    testnet=True,
-    api_key=API_KEY,
-    api_secret=API_SECRET
-)
+def handle_message(update, context):
+    text = update.message.text.upper()
 
-@app.route('/', methods=['GET'])
-def index():
-    return 'Server is running!'
-
-@app.route('/', methods=['POST'])
-def webhook():
-    data = request.json
-    print("Получен сигнал:", data)
-    signal = data.get('text', '').upper()  # предполагаем, что в TradingView отправляем в поле "text" команды BUY или SELL
-
-    if signal == "BUY":
+    if text == "BUY":
         response = client.place_order(
             category="linear",
             symbol="BTCUSDT",
@@ -34,8 +20,8 @@ def webhook():
             qty=0.01,
             time_in_force="GoodTillCancel"
         )
-        print("Buy order:", response)
-    elif signal == "SELL":
+        update.message.reply_text(f"BUY order sent: {response}")
+    elif text == "SELL":
         response = client.place_order(
             category="linear",
             symbol="BTCUSDT",
@@ -44,8 +30,16 @@ def webhook():
             qty=0.01,
             time_in_force="GoodTillCancel"
         )
-        print("Sell order:", response)
+        update.message.reply_text(f"SELL order sent: {response}")
     else:
-        print("Неизвестный сигнал")
+        update.message.reply_text("Unknown command. Send BUY or SELL.")
 
-    return {'status': 'ok'}
+def main():
+    updater = Updater(TELEGRAM_TOKEN)
+    dp = updater.dispatcher
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == "__main__":
+    main()
