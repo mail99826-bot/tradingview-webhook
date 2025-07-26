@@ -1,3 +1,4 @@
 flask
-bybit
+gunicorn
 python-dotenv
+bybit
